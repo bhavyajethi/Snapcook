@@ -5,8 +5,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-High_Performance-green?style=for-the-badge&logo=fastapi)
 ![Redis](https://img.shields.io/badge/Redis-Caching_&_Rate_Limiting-red?style=for-the-badge&logo=redis)
 
-> **🚧 WORK IN PROGRESS:** This project is currently in active development. The backend architecture is operational, but the final HTMX frontend is being polished.
-
+> **🚧 WORK IN PROGRESS:** This project is currently in active development. 
 ## 🚀 Overview
 
 **SnapCook** is a latency-optimized microservice that generates detailed recipes from food images. Unlike standard CRUD apps, SnapCook is engineered for **cost-efficiency** and **perceived performance**. 
@@ -47,3 +46,4 @@ uv sync
 
 4. **Run the Server**:
 uv run uvicorn app.main:app --reload
+
