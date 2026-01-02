@@ -8,7 +8,7 @@
 > **🚧 WORK IN PROGRESS:** This project is currently in active development. 
 ## 🚀 Overview
 
-**SnapCook** is a latency-optimized microservice that generates detailed recipes from food images. Unlike standard CRUD apps, SnapCook is engineered for **cost-efficiency** and **perceived performance**. 
+Although **SnapCook** is a simple project but I have tried to learn and implemented latency-optimized microservices that generates detailed recipes from food images. Unlike standard CRUD apps, SnapCook is engineered for **cost-efficiency** and **perceived performance**. 
 
 It uses **Perceptual Image Hashing** to detect duplicate uploads (saving expensive AI calls) and **Server-Sent Events (SSE)** to stream AI tokens in real-time, reducing perceived latency from ~6s to <500ms.
 
@@ -46,4 +46,5 @@ uv sync
 
 4. **Run the Server**:
 uv run uvicorn app.main:app --reload
+
 
