@@ -31,22 +31,19 @@ It uses **Perceptual Image Hashing** to detect duplicate uploads (saving expensi
 
 This project uses `uv` for lightning-fast dependency management.
 
-### 1. Clone the Repo
-```bash
-git clone [https://github.com/YOUR_USERNAME/snapcook.git](https://github.com/YOUR_USERNAME/snapcook.git)
-cd snapcook```
-
- 2. Configure Environment
+1. **Clone the repository**:  
+   ```bash
+   git clone https://github.com/bhavyajethi/Snapcook.git
+   
+2. **Configure Environment**:
 Create a .env file in the root directory:
-# .env
+#.env
 REDIS_URL="redis://default:YOUR_PASSWORD@YOUR_ENDPOINT.upstash.io:6379"
 GEMINI_API_KEY="YOUR_GOOGLE_AI_KEY"
 
-3. Install Dependencies
-Bash
+3. **Install Dependencies**:
 uv sync
 # OR manually: uv add fastapi uvicorn redis google-generativeai imagehash pillow python-multipart
 
-4. Run the Server
-Bash
+4. **Run the Server**:
 uv run uvicorn app.main:app --reload
