@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SnapCook Stream Test</title>
+    <style>
+        body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 20px; }
+        #output { 
+            white-space: pre-wrap; 
+            background: #f4f4f4; 
+            padding: 20px; 
+            border-radius: 8px; 
+            min-height: 200px;
+            border: 1px solid #ddd;
+        }
+        .cursor { display: inline-block; width: 10px; height: 18px; background: black; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <h1>⚡ SnapCook Streaming Test</h1>
+    <input type="file" id="imageInput" accept="image/*">
+    <button onclick="uploadImage()">Analyze Food</button>
+    <br><br>
+    <div id="output">Waiting for upload...</div>
+
+    <script>
+        async function uploadImage() {
+            const input = document.getElementById('imageInput');
+            const output = document.getElementById('output');
+            
+            if (!input.files[0]) {
+                alert("Please select a file first!");
+                return;
+            }
+
+            // 1. Prepare the upload
+            const formData = new FormData();
+            formData.append("file", input.files[0]);
+            output.innerText = ""; // Clear previous text
+
+            try {
+                // 2. Start the request
+                const response = await fetch("http://127.0.0.1:8000/analyze", {
+                    method: "POST",
+                    body: formData
+                });
+
+                // 3. Get the Reader (The Secret to Streaming)
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                // 4. Loop while the backend is sending data
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+
+                    // Decode and append chunk to screen
+                    const text = decoder.decode(value);
+                    output.innerText += text;
+                    
+                    // Auto-scroll to bottom
+                    window.scrollTo(0, document.body.scrollHeight);
+                }
+            } catch (err) {
+                output.innerText = "❌ Error: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
