@@ -1,136 +1,141 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends
+from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 from redis.asyncio import Redis
 from app.core.config import settings
-from fastapi import UploadFile, File
 from app.services.image_service import image_service
 from app.services.ai_service import ai_service
-from fastapi.responses import StreamingResponse, HTMLResponse
+import time
+import json
 
-# Global variable to hold the Redis connection
+# --- 1. SETUP ---
 redis_client = None
+templates = Jinja2Templates(directory="app/templates")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # STARTUP
+    # Startup
     global redis_client
-    # FIX 1: Use settings.redis_url (lowercase, matching config.py)
     redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
         await redis_client.ping()
-        print("✅ Connected to Upstash Redis successfully.")
+        print("✅ Redis Connected")
     except Exception as e:
-        print(f"❌ Failed to connect to Upstash Redis: {e}")
-    
-    yield # App runs here
-    
-    # SHUTDOWN
-    # FIX 2: Close the actual 'redis_client' instance, not the class
+        print(f"❌ Redis Connection Failed: {e}")
+    yield
+    # Shutdown
     if redis_client:
         await redis_client.close()
-        print("🛑 Redis connection closed.")
+        print("🛑 Redis Closed")
 
-# FIX 3: Initialize app ONLY ONCE, using the variable settings.project_name
 app = FastAPI(title=settings.project_name, lifespan=lifespan)
 
-# --- RATE LIMITER MIDDLEWARE ---
-@app.middleware("http")
-async def rate_limiter_middleware(request: Request, call_next):
-    # Allow health check to bypass rate limiter
-    if request.url.path == "/":
-        return await call_next(request)
-
+# --- 2. THE RATE LIMITER DEPENDENCY (Clean Architecture) ---
+# We use this ONLY on routes that cost money (AI).
+async def check_rate_limit(request: Request):
+    if not redis_client:
+        return # Fail open if Redis is down (Service Availability > Rate Limiting)
+        
     client_ip = request.client.host
     limiter_key = f"rate_limit:{client_ip}"
-
-    # Check if redis is connected before using it
-    if redis_client:
-        current_request = await redis_client.incr(limiter_key)
-        
-        if current_request == 1:
-            await redis_client.expire(limiter_key, 30) # Reset count every 30s
-        
-        if current_request > 10:
-            # FIX 4: Remove the 'return' so the error actually raises
-            print(f"Blocking request from {client_ip}")
-            raise HTTPException(status_code=429, detail="Too Many Requests")
     
-    response = await call_next(request)
-    return response
-
-@app.get("/")
-async def health_check():
-    return {"status": "online", "message": "SnapCook is Ready for Images"}
-
-@app.post("/analyze")
-async def analyze_image(file: UploadFile = File(...)):
-    # 1. Validate & Read Image
-    image_bytes = await image_service.validate_image(file)
-
-    # 2.Generate perceptual hash
-    image_hash = image_service.generate_perceptual_hash(image_bytes)
-
-    # 3. Check Cache
-    cache_key = f"receipe:{image_hash}"
-    if redis_client:
-        cached_receipe = await redis_client.get(cache_key)
-        if cached_receipe:
-            print(f"Cache hit! Serving image {image_hash} from cache.")
-            # If found then stream cached text also so frontend handles it similalrly
-            # generator function for cached response
-            async def stream_cached():
-                yield cached_receipe
-            return StreamingResponse(stream_cached(), media_type="text/plain")
-
-    print(f"Cache miss! Processing image {image_hash} with AI.")
-
-    # 4. Stream from AI(cached it)
-    # wrapper is required to save to redis while streaming happens
-    async def stream_cache_generator():
-        full_response = ""
-        async for chunk in ai_service.stream_receipe(image_bytes):
-            full_response += chunk
-            yield chunk # Send to user immediately
-
-        is_valid_recipe = (
-            len(full_response) > 50 and 
-            ("Ingredients" in full_response or "Instructions" in full_response)
-        )
+    # Count requests
+    current_request = await redis_client.incr(limiter_key)
+    
+    if current_request == 1:
+        await redis_client.expire(limiter_key, 60) # Reset every 60s
         
-        # save full response to redis
-        if redis_client and is_valid_recipe:
-            await redis_client.setex(cache_key, 86400, full_response) # 1 hour expiry
-            print("New receiped saved to cache")
+    if current_request > 10:
+        print(f"🚫 Blocking {client_ip} (Quota Exceeded)")
+        # This raises a standard 429 error that FastAPI handles automatically
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in a minute.")
 
-    return StreamingResponse(stream_cache_generator(), media_type="text/event-stream")
+# --- 3. ROUTES ---
 
-@app.get("/test", response_class=HTMLResponse)
-async def test_page():
-    with open("app/templates/test.html", "r", encoding="utf-8") as f:
-        return f.read()
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    # This route is FREE (No rate limit)
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/stats")
 async def get_stats():
+    # This route is FREE (No rate limit) - Your dashboard will never get blocked now
     if not redis_client:
         return {"error": "Redis not connected"}
-
-    # 'pipe' is used to get all data in 1 network call
+    
     pipe = redis_client.pipeline()
     pipe.get("stats:total_requests")
     pipe.get("stats:cache_hits")
-    pipe.get("stats:time_saved")
-
-    # Execute pipeline
-    total, hits, time = await pipe.execute()
-
-    # convert none to 0 if its the first test run 
-    total = int(total) if total else 0 
-    hits = int(hits) if hits else 0
-    time = int(time) if time else 0
-
+    # pipe.get("stats:time_saved")
+    total, hits = await pipe.execute()
+    
     return {
-        "total_requests": total,
-        "cache_hits": hits,
-        "time_saved_seconds": time,
-        "approx_money_saved": f"${(hits * 0.10):.2f}" # Assuming $0.10 per AI call for gemini 2.5 flash
+        "total_requests": int(total or 0),
+        "cache_hits": int(hits or 0),
+        # "time_saved_seconds": int(time or 0)
     }
+
+# --- THE EXPENSIVE ROUTE (PROTECTED) ---
+@app.post("/analyze", dependencies=[Depends(check_rate_limit)]) 
+async def analyze_food(file: UploadFile = File(...)):
+    # 1. Validate & Read
+    image_bytes = await image_service.validate_image(file)
+    
+    # 2. Hash
+    image_hash = image_service.generate_perceptual_hash(image_bytes)
+    cache_key = f"recipe:{image_hash}"
+    
+    # 3. Check Cache
+    if redis_client:
+        cached_recipe = await redis_client.get(cache_key)
+        if cached_recipe:
+            print("✅ Cache Hit!")
+
+            try:
+                data = json.loads(cached_recipe)
+                receipe_text = data['content']
+                #saved_time = float(data['time_taken'])
+            except:
+                receipe_text = str(cached_recipe)
+                #saved_time = 5
+
+            # Stats Update
+            pipe = redis_client.pipeline()
+            pipe.incr("stats:total_requests")
+            pipe.incr("stats:cache_hits")
+            # pipe.incrby("stats:time_saved", saved_time) 
+            await pipe.execute()
+            
+            async def stream_cached():
+                yield receipe_text
+            return StreamingResponse(stream_cached(), media_type="text/plain")
+
+    # 4. AI Process (Cache Miss)
+    print("⚠️ Cache Miss. Calling Gemini...")
+    if redis_client:
+         await redis_client.incr("stats:total_requests")
+
+    # start_time = time.time()
+
+    async def stream_and_cache_generator():
+        full_response = ""
+        async for chunk in ai_service.stream_receipe(image_bytes):
+            full_response += chunk
+            yield chunk 
+
+        # end_time = time.time()
+        # duration = round(end_time - start_time, 2)
+        
+        # Validate before caching
+        is_valid = len(full_response) > 50 and ("Ingredients" in full_response or "Instructions" in full_response)
+        
+        if redis_client and is_valid:
+            cache_data = {
+                "content": full_response,
+                # "time_duration": duration
+            }
+            await redis_client.setex(cache_key, 259200, full_response)
+            print("💾 Saved to Redis.")
+
+    return StreamingResponse(stream_and_cache_generator(), media_type="text/event-stream")

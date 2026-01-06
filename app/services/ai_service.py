@@ -14,14 +14,26 @@ class AIService:
         
         # The instructions we give the AI
         self.system_prompt = """
-        You are a professional chef. Analyze the image provided.
-        1. Identify the dish name.
-        2. List the ingredients.
-        3. Provide step-by-step cooking instructions.
-        4. Estimate calories and cooking time.
+        Analyze this image strictly in two phases.
         
-        Format the output clearly in Markdown. 
-        If the image is not food, politely refuse.
+        PHASE 1: VISUAL INSPECTION (Internal Thought)
+        - Identify the ingredients.
+        - CRITICAL: Analyze the STATE of the ingredients (e.g., Is the banana green or brown? Is the chicken raw or cooked? Is the bread stale?).
+        - Based on the state, decide the BEST culinary use. (e.g., Brown bananas -> Baking. Cooked meat -> Reheating/Salads).
+        
+        PHASE 2: RECIPE GENERATION
+        - Act as a {style} Chef.
+        - Generate a recipe that MATCHES the visual state identified in Phase 1.
+        - If the food looks spoiled/unsafe, strictly refuse and warn the user.
+        - If the food is "Leftovers" (already cooked), provide a "Second Life" recipe (e.g., turning roast chicken into tacos).
+        
+        Output format:
+        ## 🔍 Visual Analysis
+        * [Observation about state, e.g., "I see heavily bruised bananas..."]
+        * [Decision, e.g., "Perfect for high-sugar baking."]
+        
+        ## 🍳 The Recipe: [Dish Name]
+        ... (Ingredients & Steps)
         """
 
     async def stream_receipe(self, image_bytes: bytes) -> AsyncGenerator[str, None]:
