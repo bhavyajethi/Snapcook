@@ -5,10 +5,10 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-High_Performance-green?style=for-the-badge&logo=fastapi)
 ![Redis](https://img.shields.io/badge/Redis-Caching_&_Rate_Limiting-red?style=for-the-badge&logo=redis)
 
-> **🚧 WORK IN PROGRESS:** This project is currently in active development. 
+<!-- > **🚧 WORK IN PROGRESS:** This project is currently in active development.  -->
 ## 🚀 Overview
 
-Although **SnapCook** is a simple project but I have tried to learn and implemented latency-optimized microservices that generates detailed recipes from food images. Unlike standard CRUD apps, SnapCook is engineered for **cost-efficiency** and **perceived performance**. 
+Although **SnapCook** is a simple project but I have tried to learn and implemented latency-optimized microservices that generates detailed recipes from food images. SnapCook is engineered for **cost-efficiency** and **perceived performance**. 
 
 It uses **Perceptual Image Hashing** to detect duplicate uploads (saving expensive AI calls) and **Server-Sent Events (SSE)** to stream AI tokens in real-time, reducing perceived latency from ~6s to <500ms.
 
@@ -16,7 +16,7 @@ It uses **Perceptual Image Hashing** to detect duplicate uploads (saving expensi
 
 * **Backend:** FastAPI (Python) for high-concurrency async handling.
 * **Database/Cache:** Redis (Upstash) for semantic caching and distributed rate limiting.
-* **AI Engine:** Google Gemini 1.5 Flash (Streamed Response).
+* **AI Engine:** Google Gemini 2.5 Flash (Streamed Response).
 * **Frontend:** HTML5 + Vanilla JS (moving to HTMX/Tailwind).
 
 ## ✨ Key Engineering Features
@@ -24,7 +24,7 @@ It uses **Perceptual Image Hashing** to detect duplicate uploads (saving expensi
 * **⚡ Real-Time Streaming:** Uses Server-Sent Events (SSE) to deliver recipe text token-by-token.
 * **🧠 Semantic Caching:** Implements **Perceptual Hashing (pHash)** to identify identical images even if renamed or slightly resized, serving cached results instantly (0ms latency).
 * **🛡️ Distributed Rate Limiting:** Token-bucket algorithm via Redis to prevent abuse and manage AI costs.
-* **📊 Live Observability:** Built-in dashboard tracking Cache Hit Ratio, Time Saved, and Estimated Cost Savings.
+* **📊 Live Observability:** Built-in dashboard tracking Cache Hit Ratio, Time Saved.
 
 ## 🛠️ Installation & Setup
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, Form
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
@@ -20,14 +20,14 @@ async def lifespan(app: FastAPI):
     redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
         await redis_client.ping()
-        print("✅ Redis Connected")
+        print(" Redis Connected")
     except Exception as e:
-        print(f"❌ Redis Connection Failed: {e}")
+        print(f" Redis Connection Failed: {e}")
     yield
     # Shutdown
     if redis_client:
         await redis_client.close()
-        print("🛑 Redis Closed")
+        print(" Redis Closed")
 
 app = FastAPI(title=settings.project_name, lifespan=lifespan)
 
@@ -47,7 +47,7 @@ async def check_rate_limit(request: Request):
         await redis_client.expire(limiter_key, 60) # Reset every 60s
         
     if current_request > 10:
-        print(f"🚫 Blocking {client_ip} (Quota Exceeded)")
+        print(f" Blocking {client_ip} (Quota Exceeded)")
         # This raises a standard 429 error that FastAPI handles automatically
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in a minute.")
 
@@ -90,7 +90,7 @@ async def analyze_food(file: UploadFile = File(...)):
     if redis_client:
         cached_recipe = await redis_client.get(cache_key)
         if cached_recipe:
-            print("✅ Cache Hit!")
+            print("Cache Hit!")
 
             try:
                 data = json.loads(cached_recipe)
@@ -112,7 +112,7 @@ async def analyze_food(file: UploadFile = File(...)):
             return StreamingResponse(stream_cached(), media_type="text/plain")
 
     # 4. AI Process (Cache Miss)
-    print("⚠️ Cache Miss. Calling Gemini...")
+    print("Cache Miss. Calling Gemini...")
     if redis_client:
          await redis_client.incr("stats:total_requests")
 
@@ -136,6 +136,6 @@ async def analyze_food(file: UploadFile = File(...)):
                 # "time_duration": duration
             }
             await redis_client.setex(cache_key, 259200, full_response)
-            print("💾 Saved to Redis.")
+            print("Saved to Redis.")
 
     return StreamingResponse(stream_and_cache_generator(), media_type="text/event-stream")

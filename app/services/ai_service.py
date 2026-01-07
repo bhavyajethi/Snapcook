@@ -28,11 +28,11 @@ class AIService:
         - If the food is "Leftovers" (already cooked), provide a "Second Life" recipe (e.g., turning roast chicken into tacos).
         
         Output format:
-        ## 🔍 Visual Analysis
+        ##  Visual Analysis
         * [Observation about state, e.g., "I see heavily bruised bananas..."]
         * [Decision, e.g., "Perfect for high-sugar baking."]
         
-        ## 🍳 The Recipe: [Dish Name]
+        ##  The Recipe: [Dish Name]
         ... (Ingredients & Steps)
         """
 
@@ -57,7 +57,7 @@ class AIService:
                     yield chunk.text
                     
         except Exception as e:
-            print(f"❌ AI Error: {e}")
+            print(f" AI Error: {e}")
             yield "Error: Failed to generate recipe. Please try again."
 
 ai_service = AIService()
